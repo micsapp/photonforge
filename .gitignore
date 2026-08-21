@@ -1,0 +1,7 @@
+.env
+data/originals/*
+!data/originals/.gitkeep
+data/storage/*
+!data/storage/.gitkeep
+data/import/*
+!data/import/.gitkeep

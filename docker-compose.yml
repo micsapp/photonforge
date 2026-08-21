@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  photoprism:
+    image: photoprism/photoprism:latest
+    container_name: photonforge_server
+    restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    ports:
+      - "${PHOTONFORGE_PORT:-2342}:2342"
+    environment:
+      PHOTOPRISM_ADMIN_USER: "${PHOTOPRISM_ADMIN_USER:-admin}"
+      PHOTOPRISM_ADMIN_PASSWORD: "${PHOTOPRISM_ADMIN_PASSWORD}"
+      PHOTOPRISM_SITE_URL: "${PHOTONFORGE_SITE_URL:-http://localhost:2342/}"
+      PHOTOPRISM_DATABASE_DRIVER: "mysql"
+      PHOTOPRISM_DATABASE_SERVER: "mariadb:3306"
+      PHOTOPRISM_DATABASE_NAME: "${DB_NAME:-photonforge}"
+      PHOTOPRISM_DATABASE_USER: "${DB_USER:-photonforge}"
+      PHOTOPRISM_DATABASE_PASSWORD: "${DB_PASSWORD}"
+      PHOTOPRISM_WORKERS: "${PHOTOPRISM_WORKERS:-4}"
+      PHOTOPRISM_DARKTABLE_PRESETS: "${PHOTOPRISM_DARKTABLE_PRESETS:-true}"
+      PHOTOPRISM_DISABLE_RAW: "${PHOTOPRISM_DISABLE_RAW:-false}"
+      PHOTOPRISM_LOG_LEVEL: "info"
+      PHOTOPRISM_READONLY: "false"
+      PHOTOPRISM_EXPERIMENTAL: "false"
+      PHOTOPRISM_DISABLE_CHOWN: "true"
+
+    # --- NVIDIA GPU Passthrough for OpenCL RAW & CUDA ---
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, utility, compute]
+
+    # --- For Intel / AMD GPU acceleration (uncomment if using Intel/AMD on Linux/WSL2) ---
+    # devices:
+    #   - "/dev/dri:/dev/dri"
+
+    volumes:
+      # Mount originals as read-only to guarantee non-destructive safety
+      - "${PATH_ORIGINALS:-./data/originals}:/photoprism/originals:ro"
+      - "${PATH_STORAGE:-./data/storage}:/photoprism/storage"
+      - "${PATH_IMPORT:-./data/import}:/photoprism/import"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  mariadb:
+    image: mariadb:11
+    container_name: photonforge_db
+    restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    command: >
+      mariadbd
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max-connections=500
+      --innodb-buffer-pool-size=1G
+      --innodb-log-file-size=256M
+      --innodb-flush-log-at-trx-commit=2
+      --transaction-isolation=READ-COMMITTED
+    environment:
+      MARIADB_DATABASE: "${DB_NAME:-photonforge}"
+      MARIADB_USER: "${DB_USER:-photonforge}"
+      MARIADB_PASSWORD: "${DB_PASSWORD}"
+      MARIADB_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+    volumes:
+      - "mariadb_data:/var/lib/mysql"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mariadb_data:
+    name: photonforge_mariadb_data
