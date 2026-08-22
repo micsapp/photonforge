@@ -1,0 +1,7 @@
+# PhotonForge Darktable settings
+#
+# NOTE (WSL2): NVIDIA OpenCL is not available inside WSL2 containers because
+# WSL only exposes the GPU via /dev/dxg (CUDA); OpenCL requires /dev/nvidia0.
+# Keep opencl=false to avoid a failed-init delay on every RAW conversion.
+# On native Linux with an OpenCL-capable GPU, set this to true.
+opencl=false

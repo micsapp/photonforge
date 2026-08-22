@@ -11,6 +11,16 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# Prefer Compose v2 plugin (`docker compose`), fall back to legacy binary
+if docker compose version >/dev/null 2>&1; then
+    DC="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+    DC="docker-compose"
+else
+    echo -e "${RED}[!] Neither 'docker compose' nor 'docker-compose' found.${NC}" >&2
+    exit 1
+fi
+
 function print_usage() {
     echo -e "${BLUE}PhotonForge Management CLI${NC}"
     echo "Usage: ./manage.sh [command]"
@@ -31,38 +41,38 @@ function print_usage() {
 case "$1" in
     start)
         echo -e "${GREEN}[+] Starting PhotonForge...${NC}"
-        docker-compose up -d
+        $DC up -d
         echo -e "${GREEN}[✔] PhotonForge is starting at http://localhost:2342${NC}"
         ;;
     stop)
         echo -e "${YELLOW}[-] Stopping PhotonForge...${NC}"
-        docker-compose down
+        $DC down
         ;;
     restart)
         echo -e "${YELLOW}[!] Restarting PhotonForge...${NC}"
-        docker-compose restart
+        $DC restart
         ;;
     status)
-        docker-compose ps
+        $DC ps
         ;;
     logs)
-        docker-compose logs -f photoprism
+        $DC logs -f photoprism
         ;;
     index)
         echo -e "${BLUE}[*] Starting full index of RAW files...${NC}"
-        docker-compose exec photoprism photoprism index
+        $DC exec photoprism photoprism index
         ;;
     index-fast)
         echo -e "${BLUE}[*] Starting fast index...${NC}"
-        docker-compose exec photoprism photoprism index --cleanup=false
+        $DC exec photoprism photoprism index --cleanup=false
         ;;
     gpu-check)
         echo -e "${BLUE}[*] Checking GPU & Darktable OpenCL acceleration inside container...${NC}"
-        docker-compose exec photoprism darktable-cli --version || true
-        docker-compose exec photoprism photoprism config | grep -iE 'gpu|darktable|raw|workers' || true
+        $DC exec photoprism darktable-cli --version || true
+        $DC exec photoprism photoprism config | grep -iE 'gpu|darktable|raw|workers' || true
         ;;
     shell)
-        docker-compose exec photoprism bash
+        $DC exec photoprism bash
         ;;
     *)
         print_usage

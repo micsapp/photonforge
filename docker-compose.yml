@@ -1,8 +1,7 @@
-version: '3.8'
-
 services:
   photoprism:
-    image: photoprism/photoprism:latest
+    build: .
+    image: photonforge/photoprism:latest
     container_name: photonforge_server
     restart: unless-stopped
     security_opt:
@@ -26,6 +25,9 @@ services:
       PHOTOPRISM_READONLY: "false"
       PHOTOPRISM_EXPERIMENTAL: "false"
       PHOTOPRISM_DISABLE_CHOWN: "true"
+      # NVIDIA container toolkit: expose CUDA + OpenCL driver libraries
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
 
     # --- NVIDIA GPU Passthrough for OpenCL RAW & CUDA ---
     deploy:

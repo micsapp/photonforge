@@ -42,19 +42,23 @@ See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the complete gap analysis and des
 
 ## ⚡ GPU Acceleration (NVIDIA / Intel / AMD)
 
-### NVIDIA GPUs (CUDA & OpenCL)
-1. Ensure **NVIDIA Container Toolkit** is installed on Linux / Docker Desktop (WSL 2 handles this automatically).
-2. Verify GPU detection inside the container:
-   ```bash
-   ./manage.sh gpu-check
-   ```
+> **Implemented:** `Dockerfile` builds a custom PhotoPrism image with the NVIDIA
+> OpenCL ICD registered, and `config/darktable/darktablerc` controls Darktable
+> acceleration. The stack was verified end-to-end on this machine (WSL2 +
+> RTX 5070 Ti + docker.io engine).
 
-### Intel / AMD GPUs (VA-API & OpenCL)
-In `docker-compose.yml`, uncomment:
-```yaml
-devices:
-  - "/dev/dri:/dev/dri"
-```
+### NVIDIA on WSL 2 (current setup)
+CUDA works (verified via `nvidia-smi` inside the container), but **NVIDIA OpenCL is
+not available in WSL 2 containers** — WSL only exposes the GPU through `/dev/dxg`
+(CUDA); OpenCL requires `/dev/nvidia0`, which WSL does not provide. Therefore
+`config/darktable/darktablerc` keeps `opencl=false` to avoid a failed-init delay
+(~0.5 s) on every RAW conversion. Darktable demosaicing runs multi-core CPU.
+
+### Native Linux with NVIDIA / Intel / AMD GPU
+1. Ensure **nvidia-container-toolkit** is installed (`sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker`).
+2. Set `opencl=true` in `config/darktable/darktablerc`.
+3. For Intel / AMD GPUs, uncomment `/dev/dri` in `docker-compose.yml`.
+4. Rebuild: `docker compose up -d --build`
 
 ---
 
@@ -72,22 +76,33 @@ Use the bundled `./manage.sh` helper:
 ./manage.sh shell       # Open interactive container shell
 ```
 
+> **Note:** On this machine Docker runs natively inside WSL 2 (docker.io +
+> `docker-compose-v2`). If `./manage.sh` reports `docker-compose: command not found`,
+> use `docker compose ...` (v2 syntax) or install `docker-compose-v2`.
+
 ---
 
 ## 📁 Directory Structure
 
 ```
 photonforge/
-├── ARCHITECTURE.md      # Full architecture specification (from md.micstec.com)
-├── README.md            # Operational documentation
-├── docker-compose.yml   # PhotoPrism + MariaDB + GPU definition
-├── .env                 # Passwords, ports, and worker counts
-├── manage.sh            # Management CLI
+├── ARCHITECTURE.md        # Full architecture specification (from md.micstec.com)
+├── README.md              # Operational documentation
+├── docker-compose.yml     # PhotoPrism + MariaDB + GPU definition
+├── Dockerfile             # PhotoPrism image + NVIDIA OpenCL ICD registration
+├── config/
+│   └── darktable/
+│       └── darktablerc    # Darktable OpenCL / processing settings
+├── .env                   # Passwords, ports, worker counts, photo paths
+├── manage.sh              # Management CLI
 ├── data/
-│   ├── originals/       # (Read-Only) RAW files mounted here
-│   ├── storage/         # Generated thumbnails, cache & sidecars
-│   └── import/          # Auto-import drop folder
+│   ├── originals/         # Default originals location (see PATH_ORIGINALS)
+│   ├── storage/           # Generated thumbnails, cache & sidecars
+│   └── import/            # Auto-import drop folder
 ```
+
+Current `.env` points `PATH_ORIGINALS=/mnt/c/prg/rawPhotosTest` (~4,060 files:
+ARW + JPG, 121 GB).
 
 ---
 
